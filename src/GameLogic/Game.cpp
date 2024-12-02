@@ -6,8 +6,6 @@
 #include "Game.h"
 #include "../Utils/Random.h"
 #include "../Exceptions/NoAvailableAbilityException.h"
-#include "../Exceptions/YouLoseException.h"
-#include "../Exceptions/YouWonException.h"
 #include "../Exceptions/LoadException.h"
 #include "../Exceptions/SaveException.h"
 #include "../State/PlacingShipsState.h"
@@ -35,7 +33,7 @@ void Game::startNewGame() {
     } catch (LoadException &e) {
         this->setState(new LoadState());
         return;
-    } catch (SaveException &e) {}
+    }
     this->playerField = new GameField(size.first, size.second);
     this->graphics = new Graphics(this->playerField);
     std::vector<int> shipSizes;
@@ -53,6 +51,8 @@ void Game::startNewGame() {
             break;
         }
         catch (SaveException &e) {
+            std::cout << "nothing to save" << std::endl;
+            continue;
         } catch (LoadException &e) {
             this->setState(new LoadState());
             return;
@@ -390,7 +390,6 @@ void Game::youLose() {
     sleep(2);
     this->setState(new NewGameState());
 }
-
 
 
 Game::~Game() = default;

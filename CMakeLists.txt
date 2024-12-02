@@ -37,7 +37,6 @@ add_executable(BattleshipV2_0 main.cpp
         src/Graphics/Graphics.h
         src/Graphics/Graphics.cpp
         src/GameLogic/Game.cpp
-        src/Exceptions/YouWonException.h
         src/Input/Input.h
         src/Input/Input.cpp
         src/Exceptions/SaveException.h

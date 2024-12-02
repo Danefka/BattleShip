@@ -89,7 +89,8 @@ std::pair<int, int> Input::inputSize() {
         std::stringstream ss(input);
 
         if (checkSave(input)) {
-            throw SaveException();
+            std::cout << "nothing to save" << std::endl;
+            continue;
         } else if (checkLoad(input)) {
             throw LoadException();
         }
