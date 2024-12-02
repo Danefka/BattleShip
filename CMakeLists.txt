@@ -42,6 +42,16 @@ add_executable(BattleshipV2_0 main.cpp
         src/Input/Input.cpp
         src/Exceptions/SaveException.h
         src/Exceptions/LoadException.h
+        src/State/IState.h
+        src/State/LoadState.h
+        src/State/PlayerTurnState.h
+        src/State/SaveState.h
+        src/State/NewGameState.h
+        src/State/PlacingShipsState.h
+        src/State/EnemyTurnState.h
+        src/State/PlayerWonState.h
+        src/State/NewRoundState.h
+        src/State/EnemyWonState.h
 )
 
 # Подключение nlohmann_json к проекту

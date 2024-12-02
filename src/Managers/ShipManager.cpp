@@ -19,7 +19,7 @@ bool ShipManager::Lose() {
             return false;
         }
     }
-    printf("Game over");
+    printf("\nGame over\n");
     return true;
 }
 

@@ -10,18 +10,32 @@
 #include "../Exceptions/YouWonException.h"
 #include "../Exceptions/LoadException.h"
 #include "../Exceptions/SaveException.h"
+#include "../State/PlacingShipsState.h"
+#include "../State/LoadState.h"
+#include "../State/NewGameState.h"
+#include "../State/NewRoundState.h"
+#include "../State/EnemyWonState.h"
+#include "../State/PlayerWonState.h"
+#include "../State/SaveState.h"
+#include "../State/EnemyTurnState.h"
 
-Game::Game() {};
+Game::Game() {
+    state = new NewGameState();
+    while (true) {
+        state->state(*this);
+    }
+};
 
 void Game::startNewGame() {
+
     input = new Input(std::cin);
-    std::pair<int,int> size = {0,0};
+    std::pair<int, int> size = {0, 0};
     try {
-         size = input->inputSize();
-    } catch (LoadException& e){
-        startGameFromFile();
+        size = input->inputSize();
+    } catch (LoadException &e) {
+        this->setState(new LoadState());
         return;
-    } catch (SaveException& e){}
+    } catch (SaveException &e) {}
     this->playerField = new GameField(size.first, size.second);
     this->graphics = new Graphics(this->playerField);
     std::vector<int> shipSizes;
@@ -40,14 +54,15 @@ void Game::startNewGame() {
         }
         catch (SaveException &e) {
         } catch (LoadException &e) {
-            startGameFromFile();
+            this->setState(new LoadState());
+            return;
         }
     }
     this->playerShips = new ShipManager(
             {std::make_pair(4, shipSizes.at(0)), std::make_pair(3, shipSizes.at(1)),
              std::make_pair(2, shipSizes.at(2)), std::make_pair(1, shipSizes.at(3))});
     this->playersAbilities = new AttackManager();
-    startGame();
+    this->setState(new PlacingShipsState());
 }
 
 void Game::startGameFromFile() {
@@ -59,22 +74,10 @@ void Game::startGameFromFile() {
     this->enemyShips = new ShipManager();
     load();
     std::cout << "starting..." << std::endl;
-
-    while (true) {
-        try {
-            newRound();
-        } catch (YouLoseException &e) {
-            std::cout << "Starting a new game..." << std::endl;
-            sleep(2);
-            startNewGame();
-        }
-        catch (YouWonException &e) {
-            std::cout << "Starting a new round..." << std::endl;
-            sleep(2);
-        }
-    }
+    this->setState(new PlayerTurnState());
 }
-void Game::startGame() {
+
+void Game::placingShips() {
     std::cout << "Place your ships" << std::endl;
     for (Ship *ship: playerShips->getShips()) {
         bool shipPlaced = false;
@@ -89,6 +92,12 @@ void Game::startGame() {
             } catch (const InvalidShipPlacementException &e) {
                 std::cerr << e.what() << std::endl;
                 continue;
+            } catch (LoadException &e) {
+                this->setState(new LoadState());
+                return;
+            } catch (SaveException &e) {
+                std::cout << "nothing to save" << std::endl;
+                continue;
             }
             shipPlaced = true;
         }
@@ -96,20 +105,10 @@ void Game::startGame() {
 
     std::cout << "starting..." << std::endl;
 
-    while (true) {
-        try {
-            newRound();
-        } catch (YouLoseException &e) {
-            std::cout << "Starting a new game..." << std::endl;
-            sleep(5);
-            startNewGame();
-        }
-        catch (YouWonException &e) {
-            std::cout << "Starting a new round..." << std::endl;
-            sleep(5);
-        }
-    }
+    this->setState(new NewRoundState());
+
 }
+
 
 void Game::newRound() {
     this->enemyField = new GameField(playerField->getWidth(), playerField->getHeight());
@@ -135,17 +134,7 @@ void Game::newRound() {
         }
     }
 
-    while (true) {
-
-        try { this->playerTurn(); } catch (YouWonException &e) { throw e; }
-        if (enemyShips->Lose()) {
-            throw YouWonException();
-        }
-        try { this->enemyTurn(); } catch (YouWonException &e) { throw e; }
-        if (playerShips->Lose()) {
-            throw YouLoseException();
-        }
-    }
+    setState(new PlayerTurnState());
 }
 
 void Game::playerTurn() {
@@ -153,7 +142,8 @@ void Game::playerTurn() {
     bool oneMoreTurn = false;
     while (true) {
         if (enemyShips->Lose()) {
-            throw YouWonException();
+            this->setState(new PlayerWonState());
+            return;
         }
         IAttackable *attack = nullptr;
         std::pair<int, int> useAbility = {-1, -1};
@@ -168,12 +158,11 @@ void Game::playerTurn() {
             try {
                 useAbility = input->useAbility(ability);
             } catch (SaveException &e) {
-                save();
-                continue;
+                this->setState(new SaveState());
+                return;
             } catch (LoadException &e) {
-                load();
-                graphics->print();
-                continue;
+                this->setState(new LoadState());
+                return;
             }
             if (useAbility.first == 0) {
                 if (ability == "Bombing Attack") {
@@ -210,12 +199,11 @@ void Game::playerTurn() {
             try {
                 xy = input->XY();
             } catch (SaveException &e) {
-                save();
-                continue;
+                this->setState(new SaveState());
+                return;
             } catch (LoadException &e) {
-                load();
-                graphics->print();
-                continue;
+                this->setState(new LoadState());
+                return;
             }
         }
 
@@ -247,6 +235,7 @@ void Game::playerTurn() {
         if (oneMoreTurn) {
             continue;
         }
+        this->setState(new EnemyTurnState());
         break;
     }
 }
@@ -255,6 +244,10 @@ void Game::enemyTurn() {
     SimpleAttack enemyAttack = SimpleAttack();
     bool oneMoreTurn = false;
     for (int i = 0; i < 10; ++i) {
+        if (playerShips->Lose()) {
+            setState(new EnemyWonState());
+            return;
+        }
         int x = Random::getRandomNumber(0, playerField->getWidth() - 1);
         int y = Random::getRandomNumber(0, playerField->getWidth() - 1);
         if (oneMoreTurn) {
@@ -270,6 +263,7 @@ void Game::enemyTurn() {
         if (oneMoreTurn) {
             continue;
         }
+        setState(new PlayerTurnState());
         return;
     }
     for (int i = 0; i < enemyField->getWidth(); ++i) {
@@ -277,7 +271,8 @@ void Game::enemyTurn() {
             try {
                 oneMoreTurn = enemyAttack.attack(i, j, playerField);
                 if (playerShips->Lose()) {
-                    throw YouLoseException();
+                    setState(new EnemyWonState());
+                    return;
                 }
             } catch (std::runtime_error &e) {
                 continue;
@@ -286,7 +281,8 @@ void Game::enemyTurn() {
             if (oneMoreTurn) {
                 continue;
             }
-            break;
+            setState(new PlayerTurnState());
+            return;
         }
     }
 }
@@ -378,6 +374,23 @@ void Game::load() {
     inFile.close();  // Закрываем файл
     this->from_json(j);
 }
+
+void Game::setState(IState *state) {
+    Game::state = state;
+}
+
+void Game::youWon() {
+    std::cout << "Starting a new round..." << std::endl;
+    sleep(2);
+    this->setState(new NewRoundState());
+}
+
+void Game::youLose() {
+    std::cout << "Starting a new game..." << std::endl;
+    sleep(2);
+    this->setState(new NewGameState());
+}
+
 
 
 Game::~Game() = default;

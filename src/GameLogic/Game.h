@@ -13,6 +13,7 @@
 #include "../Graphics/Graphics.h"
 #include "../Managers/AttackManager.h"
 #include "../Input/Input.h"
+#include "../State/IState.h"
 
 
 class Game {
@@ -24,23 +25,23 @@ private:
 
     GameField* enemyField;
     ShipManager* enemyShips;
+    IState * state;
     Input* input;
-
+public:
+    void setState(IState *state);
+    Game();
     void newRound();
     void playerTurn();
     void enemyTurn();
-    void startGame();
+    void placingShips();
     void startGameFromFile();
-
-public:
-    Game();
-
 
 
     void startNewGame();
     nlohmann::json toJson() const;
     void from_json(const nlohmann::json& j);
-
+    void youWon();
+    void youLose();
     void save();
     void load();
     virtual ~Game();
