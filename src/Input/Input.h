@@ -10,18 +10,28 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include <tuple>
 #include <fstream>
-#include <algorithm>
-#include <unordered_map>
-#include <iosfwd>
+#include "../Exceptions/UnknownCommandException.h"
+#include "../CLI/IGraphic.h"
+#include "../Output/Output.h"
+
+enum Command{
+    NEW_GAME,
+    START_GAME,
+    SAVE,
+    LOAD,
+    QUIT,
+    HELP,
+    SILENT
+};
 
 class Input {
 private:
+    Output<IGraphic> *output;
     std::istream& is;
-
+    bool trustFile;
 public:
-    explicit Input(std::istream& inputStream = std::cin);
+    Input(std::istream &is, Output<IGraphic> *output);
     ~Input();
 
     std::pair<int, int> inputSize();
@@ -33,6 +43,15 @@ public:
     bool checkSave(std::string input);
     bool checkLoad(std::string input);
     std::pair<int, int> useAbility(std::string ability);
+    Command inputCommand();
+
+    Command standardCommand(std::string str);
+    Command stringToCommand(const std::string& str);
+
+    void checkQuit(std::string input);
+    bool validateEmptyKeysForJsonFile(const std::string& filename);
+
+    bool validateDuplicateForJsonFile(const std::string &filename);
 };
 
 

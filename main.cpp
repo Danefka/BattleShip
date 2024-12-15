@@ -1,5 +1,8 @@
-#include "src/GameLogic/Game.h"
+#include "src/GameLogic/GameController.h"
 
 int main() {
-    Game game = Game();
+    auto* output = new Output<IGraphic>(new CLI);
+    auto* input = new Input(std::cin, output);
+    Game* game = new Game(input, output);
+    GameController<Input, Output<IGraphic>> gameController = GameController{game, output, input};
 }

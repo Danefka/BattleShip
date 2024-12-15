@@ -1,0 +1,8 @@
+{
+  "n": "NEW_GAME",
+  "s": "SAVE",
+  "l": "LOAD",
+  "q": "QUIT",
+  "a": "ATTACK",
+  "h": "HELP"
+}

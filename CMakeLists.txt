@@ -8,49 +8,53 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 
 # Основной исполняемый файл
 add_executable(BattleshipV2_0 main.cpp
-        src/Field/Cell.h
-        src/Field/Cell.cpp
-        src/Ship/ShipSegment.cpp
-        src/Ship/Ship.h
-        src/Ship/Ship.cpp
-        src/Managers/ShipManager.h
-        src/Managers/ShipManager.cpp
-        src/Field/GameField.h
-        src/Field/GameField.cpp
+        src/GameLogic/Field/Cell.h
+        src/GameLogic/Field/Cell.cpp
+        src/GameLogic/Ship/ShipSegment.cpp
+        src/GameLogic/Ship/Ship.h
+        src/GameLogic/Ship/Ship.cpp
+        src/GameLogic/Managers/ShipManager.h
+        src/GameLogic/Managers/ShipManager.cpp
+        src/GameLogic/Field/GameField.h
+        src/GameLogic/Field/GameField.cpp
         src/Exceptions/AttackOutOfBoundsException.h
         src/Exceptions/InvalidShipPlacementException.h
-        src/Attacks/IAttackable.h
-        src/Attacks/SimpleAttack.h
-        src/Attacks/SimpleAttack.cpp
-        src/Attacks/DoubleAttack.h
-        src/Attacks/DoubleAttack.cpp
-        src/Attacks/BombingAttack.h
-        src/Attacks/BombingAttack.cpp
+        src/GameLogic/Attacks/IAttackable.h
+        src/GameLogic/Attacks/SimpleAttack.h
+        src/GameLogic/Attacks/SimpleAttack.cpp
+        src/GameLogic/Attacks/DoubleAttack.h
+        src/GameLogic/Attacks/DoubleAttack.cpp
+        src/GameLogic/Attacks/BombingAttack.h
+        src/GameLogic/Attacks/BombingAttack.cpp
         src/Utils/Random.h
         src/Exceptions/ShipSegmentHasAlreadyDestroyedException.h
-        src/Attacks/ScannerAttack.h
-        src/Attacks/ScannerAttack.cpp
-        src/Managers/AttackManager.h
-        src/Managers/AttackManager.cpp
+        src/GameLogic/Attacks/ScannerAttack.h
+        src/GameLogic/Attacks/ScannerAttack.cpp
+        src/GameLogic/Managers/AttackManager.h
+        src/GameLogic/Managers/AttackManager.cpp
         src/Exceptions/NoAvailableAbilityException.h
         src/GameLogic/Game.h
-        src/Graphics/Graphics.h
-        src/Graphics/Graphics.cpp
+        src/CLI/CLI.h
+        src/CLI/CLI.cpp
         src/GameLogic/Game.cpp
         src/Input/Input.h
         src/Input/Input.cpp
         src/Exceptions/SaveException.h
         src/Exceptions/LoadException.h
-        src/State/IState.h
-        src/State/LoadState.h
-        src/State/PlayerTurnState.h
-        src/State/SaveState.h
-        src/State/NewGameState.h
-        src/State/PlacingShipsState.h
-        src/State/EnemyTurnState.h
-        src/State/PlayerWonState.h
-        src/State/NewRoundState.h
-        src/State/EnemyWonState.h
+        src/GameLogic/State/IState.h
+        src/GameLogic/State/LoadState.h
+        src/GameLogic/State/PlayerTurnState.h
+        src/GameLogic/State/SaveState.h
+        src/GameLogic/State/NewGameState.h
+        src/GameLogic/State/PlacingShipsState.h
+        src/GameLogic/State/EnemyTurnState.h
+        src/GameLogic/State/PlayerWonState.h
+        src/GameLogic/State/NewRoundState.h
+        src/GameLogic/State/EnemyWonState.h
+        src/Output/Output.h
+        src/GameLogic/GameController.h
+        src/CLI/IGraphic.h
+        src/Exceptions/UnknownCommandException.h
 )
 
 # Подключение nlohmann_json к проекту

@@ -3,39 +3,42 @@
 //
 
 #include <unistd.h>
+#include <nlohmann/json.hpp>
 #include "Game.h"
 #include "../Utils/Random.h"
 #include "../Exceptions/NoAvailableAbilityException.h"
 #include "../Exceptions/LoadException.h"
 #include "../Exceptions/SaveException.h"
-#include "../State/PlacingShipsState.h"
-#include "../State/LoadState.h"
-#include "../State/NewGameState.h"
-#include "../State/NewRoundState.h"
-#include "../State/EnemyWonState.h"
-#include "../State/PlayerWonState.h"
-#include "../State/SaveState.h"
-#include "../State/EnemyTurnState.h"
+#include "State/PlacingShipsState.h"
+#include "State/LoadState.h"
+#include "State/NewGameState.h"
+#include "State/NewRoundState.h"
+#include "State/EnemyWonState.h"
+#include "State/PlayerWonState.h"
+#include "State/SaveState.h"
+#include "State/EnemyTurnState.h"
 
-Game::Game() {
+Game::Game(Input *input, Output<IGraphic> *output) {
+    this->input = input;
+    this->output = output;
     state = new NewGameState();
-    while (true) {
-        state->state(*this);
-    }
 };
+
+void Game::doState() {
+    state->state(*this);
+}
 
 void Game::startNewGame() {
 
-    input = new Input(std::cin);
     std::pair<int, int> size = {0, 0};
     try {
         size = input->inputSize();
     } catch (LoadException &e) {
         this->setState(new LoadState());
+         
         return;
     }
     this->playerField = new GameField(size.first, size.second);
-    this->graphics = new Graphics(this->playerField);
     std::vector<int> shipSizes;
     while (true) {
         try {
@@ -45,65 +48,72 @@ void Game::startNewGame() {
                 sum += (4 - i) * shipSizes.at(i);
             }
             if (sum > playerField->getWidth() * playerField->getHeight()) {
-                std::cout << "\e[1;31mYou adding to many ships \e[0m" << std::endl;
+                output->printMessage("\e[1;31mYou adding to many ships \e[0m\n");
                 continue;
             }
             break;
         }
         catch (SaveException &e) {
-            std::cout << "nothing to save" << std::endl;
+            output->printMessage("nothing to save\n");
             continue;
         } catch (LoadException &e) {
             this->setState(new LoadState());
+             
             return;
         }
     }
     this->playerShips = new ShipManager(
             {std::make_pair(4, shipSizes.at(0)), std::make_pair(3, shipSizes.at(1)),
              std::make_pair(2, shipSizes.at(2)), std::make_pair(1, shipSizes.at(3))});
-    this->playersAbilities = new AttackManager();
+    this->playersAbilities = new AttackManager(output);
     this->setState(new PlacingShipsState());
 }
 
 void Game::startGameFromFile() {
     this->playerField = new GameField();
-    this->graphics = new Graphics();
     this->playerShips = new ShipManager();
-    this->playersAbilities = new AttackManager();
+    this->playersAbilities = new AttackManager(output);
     this->enemyField = new GameField();
     this->enemyShips = new ShipManager();
+    try {
     load();
-    std::cout << "starting..." << std::endl;
-    this->setState(new PlayerTurnState());
+    output->printMessage("starting...\n");
+    this->setState(new PlayerTurnState());}
+    catch (std::runtime_error & e){
+        throw e;
+    }
 }
 
 void Game::placingShips() {
-    std::cout << "Place your ships" << std::endl;
+    output->printMessage("Place your ships\n");
     for (Ship *ship: playerShips->getShips()) {
         bool shipPlaced = false;
-        graphics->startGamePrint();
+        output->printField(playerField);
         while (!shipPlaced) {
             try {
                 std::vector<int> XYOrient = input->XYOrient(ship->getLength());
                 playerField->placeShip(XYOrient.at(0), XYOrient.at(1), ship, XYOrient.at(2));
             } catch (const std::invalid_argument &e) {
-                std::cerr << e.what() << std::endl;
+                output->printError(e.what());
                 continue;
             } catch (const InvalidShipPlacementException &e) {
-                std::cerr << e.what() << std::endl;
+                std::ostringstream oss;
+                oss << e.what() << "\n";
+                output->printMessage(oss.str());
                 continue;
             } catch (LoadException &e) {
                 this->setState(new LoadState());
+                 
                 return;
             } catch (SaveException &e) {
-                std::cout << "nothing to save" << std::endl;
+                output->printMessage("nothing to save\n");
                 continue;
             }
             shipPlaced = true;
         }
     }
 
-    std::cout << "starting..." << std::endl;
+    output->printMessage("starting...\n");
 
     this->setState(new NewRoundState());
 
@@ -116,7 +126,6 @@ void Game::newRound() {
     this->enemyShips = new ShipManager(
             {std::make_pair(4, amountShips.at(0)), std::make_pair(3, amountShips.at(1)),
              std::make_pair(2, amountShips.at(2)), std::make_pair(1, amountShips.at(3))});
-    graphics->setEnemyField(enemyField);
     for (Ship *ship: enemyShips->getShips()) {
         bool shipPlaced = false;
         while (!shipPlaced) {
@@ -138,11 +147,13 @@ void Game::newRound() {
 }
 
 void Game::playerTurn() {
-    graphics->print();
+    output->printFields(playerField,enemyField);
     bool oneMoreTurn = false;
     while (true) {
         if (enemyShips->Lose()) {
+            output->printMessage("You win this round!\n");
             this->setState(new PlayerWonState());
+             
             return;
         }
         IAttackable *attack = nullptr;
@@ -150,7 +161,7 @@ void Game::playerTurn() {
         bool skipXY = false;
         bool skipAbility = false;
         if (oneMoreTurn) {
-            graphics->print();
+            output->printFields(playerField, enemyField);
         }
         oneMoreTurn = false;
         try {
@@ -159,9 +170,11 @@ void Game::playerTurn() {
                 useAbility = input->useAbility(ability);
             } catch (SaveException &e) {
                 this->setState(new SaveState());
+                 
                 return;
             } catch (LoadException &e) {
                 this->setState(new LoadState());
+                 
                 return;
             }
             if (useAbility.first == 0) {
@@ -173,7 +186,7 @@ void Game::playerTurn() {
                 skipAbility = true;
             }
         } catch (const NoAvailableAbilityException &e) {
-            std::cerr << e.what() << std::endl;
+            output->printError(e.what());
         }
         if (useAbility.first != 0) {
             attack = new SimpleAttack();
@@ -188,7 +201,7 @@ void Game::playerTurn() {
                 }
                 continue;
             } catch (const std::runtime_error &e) {
-                std::cerr << e.what() << std::endl;
+                output->printError(e.what());
                 continue;
             }
         }
@@ -200,9 +213,11 @@ void Game::playerTurn() {
                 xy = input->XY();
             } catch (SaveException &e) {
                 this->setState(new SaveState());
+                 
                 return;
             } catch (LoadException &e) {
                 this->setState(new LoadState());
+                 
                 return;
             }
         }
@@ -212,7 +227,7 @@ void Game::playerTurn() {
         try {
             enemyField->checkCoordinate(xy.first, xy.second);
         } catch (const AttackOutOfBoundsException &e) {
-            std::cerr << e.what() << std::endl;
+            output->printError(e.what());
             continue;
         }
 
@@ -223,7 +238,7 @@ void Game::playerTurn() {
                 oneMoreTurn = attack->attack(xy.first, xy.second, enemyField);
             }
         } catch (const std::runtime_error &e) {
-            std::cerr << e.what() << std::endl;
+            output->printError(e.what());
             continue;
         }
 
@@ -245,13 +260,14 @@ void Game::enemyTurn() {
     bool oneMoreTurn = false;
     for (int i = 0; i < 10; ++i) {
         if (playerShips->Lose()) {
+            output->printMessage("You lose!\n");
             setState(new EnemyWonState());
             return;
         }
         int x = Random::getRandomNumber(0, playerField->getWidth() - 1);
         int y = Random::getRandomNumber(0, playerField->getWidth() - 1);
         if (oneMoreTurn) {
-            graphics->print();
+            output->printFields(playerField, enemyField);
         }
         oneMoreTurn = false;
         try {
@@ -259,7 +275,7 @@ void Game::enemyTurn() {
         } catch (std::runtime_error &e) {
             continue;
         }
-        printf("\e[1;31menemy attack cell %d %d \e[0m", x + 1, y + 1);
+        output->printMessage( "\e[1;31menemy attack cell " + std::to_string(x+1) + " " + std::to_string(y+1) + "\e[0m");
         if (oneMoreTurn) {
             continue;
         }
@@ -277,7 +293,7 @@ void Game::enemyTurn() {
             } catch (std::runtime_error &e) {
                 continue;
             }
-            printf("\e[1;31menemy attack cell %d %d \e[0m", i + 1, j + 1);
+            output->printMessage("\e[1;31menemy attack cell " + std::to_string(i+1) + " " + std::to_string(j+1) + "\e[0m");
             if (oneMoreTurn) {
                 continue;
             }
@@ -291,7 +307,7 @@ nlohmann::json Game::toJson() const {
     std::unordered_map<int, ShipSegment *> playerSegmentMap;
     for (Ship *ship: playerShips->getShips()) {
         for (int i = 0; i < ship->getLength(); i++) {
-            playerSegmentMap[ship->getSegment(i).getId()] = &ship->getSegment(i);
+            playerSegmentMap[ship->getSegment(i)->getId()] = ship->getSegment(i);
         }
     }
     nlohmann::json j;
@@ -303,7 +319,7 @@ nlohmann::json Game::toJson() const {
     std::unordered_map<int, ShipSegment *> enemySegmentMap;
     for (Ship *ship: enemyShips->getShips()) {
         for (int i = 0; i < ship->getLength(); i++) {
-            enemySegmentMap[ship->getSegment(i).getId()] = &ship->getSegment(i);
+            enemySegmentMap[ship->getSegment(i)->getId()] = ship->getSegment(i);
         }
     }
 
@@ -344,19 +360,18 @@ void Game::from_json(const nlohmann::json &j) {
     playersAbilities->fromJson(j.at("playerAbilities"));
     enemyField->fromJson(j.at("enemyField"), enemySegmentMap);
     enemyShips->fromJson(j.at("enemyShips"), enemySegmentMap);
-    this->graphics = new Graphics(playerField);
-    this->graphics->setEnemyField(enemyField);
-    this->input = new Input(std::cin);
+    this->input = new Input(std::cin,output);
 }
 
 void Game::save() {
-    nlohmann::json j = this->toJson();
+    nlohmann::json j;
+    j = this->toJson();
 
     std::ofstream outFile("Game.json");
     if (!outFile.is_open()) {
-        std::cerr << "Ошибка при открытии файла для записи!" << std::endl;
-        return;
+       throw std::runtime_error("Ошибка при открытии файла для записи!");
     }
+
 
     outFile << j;
     outFile.close();
@@ -365,7 +380,7 @@ void Game::save() {
 void Game::load() {
     std::ifstream inFile("Game.json");
     if (!inFile.is_open()) {
-        std::cerr << "Ошибка при открытии файла для чтения!" << std::endl;
+        output->printMessage("Ошибка при открытии файла для чтения!\n");
         throw std::runtime_error("Не удалось открыть файл для чтения");
     }
 
@@ -380,15 +395,34 @@ void Game::setState(IState *state) {
 }
 
 void Game::youWon() {
-    std::cout << "Starting a new round..." << std::endl;
+    output->printMessage("Starting a new round...\n");
     sleep(2);
     this->setState(new NewRoundState());
+     
 }
 
 void Game::youLose() {
-    std::cout << "Starting a new game..." << std::endl;
+    output->printMessage("Starting a new game...\n");
     sleep(2);
     this->setState(new NewGameState());
+}
+
+IState *Game::getState() const {
+    return state;
+}
+
+std::ofstream& operator<<(std::ofstream& out, Game* game) {
+    nlohmann::json j = game->toJson();
+    out << j.dump();
+    return out;
+}
+
+std::ifstream& operator>>(std::ifstream& in, Game* game) {
+    std::string json_str;
+    std::getline(in, json_str);
+    nlohmann::json j = nlohmann::json::parse(json_str);
+    game->from_json(j);
+    return in;
 }
 
 

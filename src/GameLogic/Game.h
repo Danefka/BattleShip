@@ -6,21 +6,23 @@
 #define BATTLESHIPV2_0_GAME_H
 
 
-#include <nlohmann/json_fwd.hpp>
+
 #include <nlohmann/json.hpp>
-#include "../Field/GameField.h"
-#include "../Managers/ShipManager.h"
-#include "../Graphics/Graphics.h"
-#include "../Managers/AttackManager.h"
+#include "Field/GameField.h"
+#include "Managers/ShipManager.h"
+#include "../CLI/CLI.h"
+#include "Managers/AttackManager.h"
 #include "../Input/Input.h"
-#include "../State/IState.h"
+#include "State/IState.h"
+#include "../Output/Output.h"
 
 
 class Game {
 private:
     GameField* playerField;
     ShipManager* playerShips;
-    Graphics* graphics;
+    Output<IGraphic>* output;
+
     AttackManager* playersAbilities;
 
     GameField* enemyField;
@@ -29,7 +31,7 @@ private:
     Input* input;
 public:
     void setState(IState *state);
-    Game();
+    Game(Input *input, Output<IGraphic> *output);
     void newRound();
     void playerTurn();
     void enemyTurn();
@@ -46,6 +48,9 @@ public:
     void load();
     virtual ~Game();
 
+    IState *getState() const;
+
+    void doState();
 };
 
 

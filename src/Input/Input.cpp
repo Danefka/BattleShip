@@ -3,12 +3,14 @@
 //
 
 
+#include <nlohmann/json.hpp>
 #include "Input.h"
 #include "../Exceptions/SaveException.h"
 #include "../Exceptions/LoadException.h"
+#include "unordered_set"
+#include <regex>
 
 
-Input::Input(std::istream &inputStream) : is(inputStream) {};
 
 std::pair<int, int> Input::XY() {
     std::cout << "Input x and y for attack" << std::endl;
@@ -83,23 +85,26 @@ int Input::inputValue() {
 std::pair<int, int> Input::inputSize() {
     int first, second;
     while (true) {
-        std::cout << "Enter size (two integers between 1 and 10): ";
+        output->printMessage("Enter size (two integers between 1 and 10): ");
         std::string input;
         std::getline(is, input);
         std::stringstream ss(input);
 
         if (checkSave(input)) {
-            std::cout << "nothing to save" << std::endl;
+            output->printError("nothing to save");
             continue;
         } else if (checkLoad(input)) {
             throw LoadException();
         }
+        checkQuit(input);
+
+        checkQuit(input);
 
         if (ss >> first >> second && ss.eof() &&
             first > 0 && first <= 10 && second > 0 && second <= 10) {
             return {first, second};
         }
-        std::cout << "Invalid input. Please enter two integers between 1 and 10.\n";
+        output->printError("Invalid input. Please enter two integers between 1 and 10.");
     }
 }
 
@@ -107,7 +112,7 @@ std::vector<int> Input::shipAmount() {
     std::vector<int> *shipAmount = new std::vector<int>(4);
     int i = 0;
     while (i < 4) {
-        std::cout << "How many ships with length " << 4 - i << " yow want to place" << std::endl;
+        output->printMessage("How many ships with length " + std::to_string(4 - i) + " yow want to place");
         try {
             shipAmount->at(i) = inputValue();
         }
@@ -119,25 +124,25 @@ std::vector<int> Input::shipAmount() {
         if (shipAmount->at(i) > -1) {
             i++;
         }
-        if(i == 4){
+        if (i == 4) {
             int sum = 0;
-            for (int j:*shipAmount) {
-                sum+=j;
+            for (int j: *shipAmount) {
+                sum += j;
             }
-            if (sum == 0){
-                std::cout << "You have to place any ship" << std::endl;
-                i=0;
+            if (sum == 0) {
+                output->printError("You have to place any ship");
+                i = 0;
             }
         }
     }
     return *shipAmount;
 }
 
-std::pair<int,int> Input::useAbility(std::string ability) {
-    std::pair<int,int> xy;
-    std::cout << "Do you want to use " << ability << "?" << std::endl;
-    std::cout << "-1 - No, 0 - Yes " << std::endl;
-    int x,y;
+std::pair<int, int> Input::useAbility(std::string ability) {
+    std::pair<int, int> xy;
+    output->printMessage("Do you want to use " + ability + "?");
+    output->printMessage("-1 - No, 0 - Yes ");
+    int x, y;
     std::string input;
     std::stringstream ss(input);
     while (true) {
@@ -154,8 +159,10 @@ std::pair<int,int> Input::useAbility(std::string ability) {
     } else if (checkLoad(input)) {
         throw LoadException();
     }
+    checkQuit(input);
+
     ss >> xy.first >> xy.second;
-    if (xy.first == 0 || xy.first == -1){
+    if (xy.first == 0 || xy.first == -1) {
         xy.second = -1;
     }
     return xy;
@@ -169,4 +176,124 @@ bool Input::checkLoad(std::string input) {
     return input.find("load") != std::string::npos || input.find("Load") != std::string::npos;
 }
 
+void Input::checkQuit(std::string input) {
+    if (input.find("quit") != std::string::npos || input.find("Quit") != std::string::npos) {
+        exit(0);
+    }
+}
+
+
+Input::Input(std::istream &is, Output<IGraphic> *output) : is(is), output(output),
+                                                           trustFile(validateEmptyKeysForJsonFile("commands.json") and
+                                                                             validateDuplicateForJsonFile("commands.json")) {}
+
 Input::~Input() = default;
+
+Command Input::standardCommand(std::string str) {
+    if (str == "b") { return START_GAME; }
+    if (str == "n") { return NEW_GAME; }
+    if (str == "s") { return SAVE; }
+    if (str == "l") { return LOAD; }
+    if (str == "q") { return QUIT; }
+    if (str == "h") { return HELP; }
+    if (str == ".") { return SILENT; }
+    throw UnknownCommandException(str);
+}
+
+Command Input::inputCommand() {
+    std::string input;
+    nlohmann::json data;
+    std::ifstream inFile("commands.json");
+    if (!inFile.is_open() || !trustFile) {
+        output->printMessage("enter standard command");
+        while (true) {
+            std::getline(is, input);
+            try {
+                Command command = standardCommand(input);
+                return command;
+            } catch (UnknownCommandException &e) {
+                std::ostringstream oss;
+                oss << e.what();
+                output->printError("Command " + oss.str() + " is not define");
+            }
+        }
+    }
+    inFile >> data;
+    inFile.close();
+    while (true) {
+        output->printMessage("enter command");
+        std::getline(is, input);
+        try {
+            if (data.contains(input)) {
+                std::string str = data[input];
+                Command command = stringToCommand(str);
+                return command;
+            }
+            throw UnknownCommandException(input);
+        } catch (UnknownCommandException &e) {
+            std::ostringstream oss;
+            oss << e.what();
+            output->printError("Command " + oss.str() + " is not define");
+        }
+    }
+}
+
+Command Input::stringToCommand(const std::string &str) {
+    if (str == "NEW_GAME") return Command::NEW_GAME;
+    if (str == "START_GAME") return Command::START_GAME;
+    if (str == "SAVE") return Command::SAVE;
+    if (str == "LOAD") return Command::LOAD;
+    if (str == "QUIT") return Command::QUIT;
+    if (str == "HELP") return Command::HELP;
+    if (str == "SILENT") return Command::SILENT;
+    throw UnknownCommandException();
+}
+
+
+bool Input::validateEmptyKeysForJsonFile(const std::string &filename) {
+    std::ifstream inFile(filename);
+    if (!inFile.is_open()) {
+        output->printError("Can't open the file " + filename);
+        return false;
+    }
+
+    nlohmann::json data;
+    inFile >> data;
+
+    for (const auto &[key, value]: data.items()) {
+        if (key.empty()) {
+            output->printError("Error, file contain empty key.");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Input::validateDuplicateForJsonFile(const std::string &filename) {
+    std::ifstream inFile(filename);
+    if (!inFile.is_open()) {
+        output->printError("Can't open the file " + filename);
+        return false;
+    }
+
+    std::string jsonContent((std::istreambuf_iterator<char>(inFile)),
+                            std::istreambuf_iterator<char>());
+
+    std::unordered_set<std::string> seenKeys;
+
+    std::regex keyRegex("\"([^\"]+)\":");
+    std::smatch match;
+
+    std::string::const_iterator searchStart(jsonContent.cbegin());
+    while (std::regex_search(searchStart, jsonContent.cend(), match, keyRegex)) {
+        std::string key = match[1];
+        if (seenKeys.count(key)) {
+            output->printError("Error, key \"" + key + "\" duplicates.");
+            return false;
+        }
+        seenKeys.insert(key);
+        searchStart = match.suffix().first;
+    }
+
+    return true;
+}
